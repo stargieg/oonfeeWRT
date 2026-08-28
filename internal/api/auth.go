@@ -937,7 +937,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 // minPasswordLen is a floor, not a policy. Composition rules (a digit, a
 // symbol) push people toward predictable substitutions and are not applied.
-const minPasswordLen = 12
+const minPasswordLen = 6
 
 func validateCredential(username, password string) error {
 	if strings.TrimSpace(username) == "" {

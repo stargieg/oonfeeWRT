@@ -203,7 +203,7 @@ func TestAdoptInstallsExactlyOneFileAndOneLogin(t *testing.T) {
 	op := operatorClient(t)
 
 	boot := newBootFor(op)
-	res, err := testAdopter().Adopt(ctx, op, boot)
+	res, err := testAdopter().Adopt(ctx, op, boot, "__test")
 	if err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
@@ -274,7 +274,7 @@ func TestAdoptVerifiesTheCredentialItCreated(t *testing.T) {
 
 	a := testAdopter()
 	boot := newBootFor(op)
-	if _, err := a.Adopt(ctx, op, boot); err == nil {
+	if _, err := a.Adopt(ctx, op, boot, "__test"); err == nil {
 		t.Fatal("Adopt should fail when the new credential cannot log in")
 	} else if !strings.Contains(err.Error(), "does not work") {
 		t.Fatalf("error should name the verification failure, got: %v", err)
@@ -293,7 +293,7 @@ func TestAdoptCreateLoginFailureRollsBackOnlyTheACL(t *testing.T) {
 	boot.passHash = "foreign-state-must-remain"
 	boot.failLogin = primary
 
-	_, err := testAdopter().Adopt(context.Background(), op, boot)
+	_, err := testAdopter().Adopt(context.Background(), op, boot, "__test")
 	if !errors.Is(err, primary) {
 		t.Fatalf("create-login failure was not preserved: %v", err)
 	}
@@ -323,7 +323,7 @@ func TestAdoptFreshSessionFailureRollsBackTheFootprint(t *testing.T) {
 	})
 
 	boot := newBootFor(op)
-	_, err := testAdopter().Adopt(ctx, op, boot)
+	_, err := testAdopter().Adopt(ctx, op, boot, "__test")
 	if err == nil || !strings.Contains(err.Error(), "cannot open a session to verify") {
 		t.Fatalf("fresh-session failure was not preserved: %v", err)
 	}
@@ -347,7 +347,7 @@ func TestAdoptReverifiesIdentityOnTheNewControllerSession(t *testing.T) {
 		// credential into rpcd, so the callback cannot have run before proof.
 		return controller.Call(ctx, "system", "board", nil, nil)
 	}
-	if _, err := a.Adopt(ctx, op, newBootFor(op)); err != nil {
+	if _, err := a.Adopt(ctx, op, newBootFor(op), "__test"); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
 	if !called {
@@ -363,7 +363,7 @@ func TestAdoptStopsWhenControllerIdentityChanges(t *testing.T) {
 		return errors.New("MAC changed")
 	}
 	boot := newBootFor(op)
-	if _, err := a.Adopt(ctx, op, boot); err == nil {
+	if _, err := a.Adopt(ctx, op, boot, "__test"); err == nil {
 		t.Fatal("identity mismatch was accepted")
 	} else if !strings.Contains(err.Error(), "controller identity verification failed") ||
 		!strings.Contains(err.Error(), "MAC changed") {
@@ -385,7 +385,7 @@ func TestAdoptCapabilityProbeFailureRollsBackAfterCancellation(t *testing.T) {
 	}
 	boot := newBootFor(op)
 
-	_, err := a.Adopt(ctx, op, boot)
+	_, err := a.Adopt(ctx, op, boot, "__test")
 	if err == nil || !strings.Contains(err.Error(), "capability probe") ||
 		!errors.Is(err, context.Canceled) {
 		t.Fatalf("capability-probe failure was not preserved: %v", err)
@@ -412,7 +412,7 @@ func TestAdoptRollbackFailureReportsSafeResidueAndRemedy(t *testing.T) {
 		_ = boot.RemoveFootprint(context.Background(), DefaultACLPath, DefaultUser)
 	})
 
-	_, err := a.Adopt(ctx, op, boot)
+	_, err := a.Adopt(ctx, op, boot, "__test")
 	var rollback *RollbackError
 	if !errors.As(err, &rollback) || !errors.Is(err, primary) ||
 		!errors.Is(rollback.Cleanup, cleanup) {
@@ -453,7 +453,7 @@ func TestAdoptACLOnlyRollbackFailureDoesNotPrescribeLoginRemoval(t *testing.T) {
 	boot.failLogin = primary
 	boot.failRemoveACL = cleanup
 
-	_, err := a.Adopt(context.Background(), op, boot)
+	_, err := a.Adopt(context.Background(), op, boot, "__test")
 	var rollback *RollbackError
 	if !errors.As(err, &rollback) || !errors.Is(err, primary) {
 		t.Fatalf("rollback failure lost its primary cause: %v", err)
@@ -476,7 +476,7 @@ func TestAdoptACLOnlyRollbackFailureDoesNotPrescribeLoginRemoval(t *testing.T) {
 func TestAdoptRefusesWithoutACLContent(t *testing.T) {
 	op := operatorClient(t)
 	a := &Adopter{}
-	if _, err := a.Adopt(context.Background(), op, newBoot()); err == nil {
+	if _, err := a.Adopt(context.Background(), op, newBoot(), "__test"); err == nil {
 		t.Fatal("adopting with no ACL content must fail")
 	}
 }
@@ -488,7 +488,7 @@ func TestUnadoptWithoutOperatorStopsAndReportsResidue(t *testing.T) {
 	ctx := context.Background()
 	op := operatorClient(t)
 	a := testAdopter()
-	if _, err := a.Adopt(ctx, op, newBootFor(op)); err != nil {
+	if _, err := a.Adopt(ctx, op, newBootFor(op), "__test"); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
 
@@ -545,7 +545,7 @@ func TestUnadoptWithOperatorRemovesTheFootprint(t *testing.T) {
 	op := operatorClient(t)
 	a := testAdopter()
 	boot := newBootFor(op)
-	if _, err := a.Adopt(ctx, op, boot); err != nil {
+	if _, err := a.Adopt(ctx, op, boot, "__test"); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
 	if len(boot.acl) == 0 {
@@ -580,7 +580,7 @@ func TestUnadoptIsIdempotent(t *testing.T) {
 	op := operatorClient(t)
 	a := testAdopter()
 	boot := newBootFor(op)
-	if _, err := a.Adopt(ctx, op, boot); err != nil {
+	if _, err := a.Adopt(ctx, op, boot, "__test"); err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}
 	if _, err := a.Unadopt(ctx, op, boot, nil); err != nil {
@@ -600,7 +600,7 @@ func TestUnadoptIsIdempotent(t *testing.T) {
 // hard error rather than something to attempt and fail at halfway.
 func TestAdoptRefusesWithoutABootstrap(t *testing.T) {
 	op := operatorClient(t)
-	if _, err := testAdopter().Adopt(context.Background(), op, nil); !errors.Is(err, ErrNoBootstrap) {
+	if _, err := testAdopter().Adopt(context.Background(), op, nil, "__test"); !errors.Is(err, ErrNoBootstrap) {
 		t.Fatalf("got %v, want ErrNoBootstrap", err)
 	}
 }
@@ -613,7 +613,7 @@ func TestAdoptDoesNotCreateALoginIfTheACLFails(t *testing.T) {
 	boot := newBoot()
 	boot.failACL = errors.New("no space left on device")
 
-	if _, err := testAdopter().Adopt(context.Background(), op, boot); err == nil {
+	if _, err := testAdopter().Adopt(context.Background(), op, boot, "__test"); err == nil {
 		t.Fatal("Adopt succeeded despite the ACL write failing")
 	}
 	if boot.login != "" {
@@ -628,7 +628,7 @@ func TestAdoptRollsBackTheACLWhenTheLoginFails(t *testing.T) {
 	boot := newBoot()
 	boot.failLogin = errors.New("uci: entry not found")
 
-	_, err := testAdopter().Adopt(context.Background(), op, boot)
+	_, err := testAdopter().Adopt(context.Background(), op, boot, "__test")
 	if err == nil {
 		t.Fatal("Adopt succeeded despite the login failing")
 	}
@@ -653,13 +653,13 @@ func TestProbeRunsAfterTheACLIsInstalled(t *testing.T) {
 	// Fail the ACL write. If the probe ran first, it would already have
 	// happened and the capability record would exist; it must not.
 	boot.failACL = errors.New("disk full")
-	if _, err := testAdopter().Adopt(ctx, op, boot); err == nil {
+	if _, err := testAdopter().Adopt(ctx, op, boot, "__test"); err == nil {
 		t.Fatal("Adopt succeeded despite the ACL write failing")
 	}
 
 	// Now let it succeed and confirm the record comes back populated.
 	boot2 := newBootFor(op)
-	res, err := testAdopter().Adopt(ctx, op, boot2)
+	res, err := testAdopter().Adopt(ctx, op, boot2, "__test")
 	if err != nil {
 		t.Fatalf("Adopt: %v", err)
 	}

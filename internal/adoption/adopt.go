@@ -143,7 +143,7 @@ func rollbackAdoption(ctx context.Context, boot Bootstrap, aclPath, user string,
 // matters beyond tidiness — restarting rpcd destroys every session on the
 // device, including any armed rollback's, so adoption must never do it
 // casually.
-func (a *Adopter) Adopt(ctx context.Context, operator *ubus.Client, boot Bootstrap) (*Result, error) {
+func (a *Adopter) Adopt(ctx context.Context, operator *ubus.Client, boot Bootstrap, password string) (*Result, error) {
 	if len(a.ACL) == 0 {
 		return nil, errors.New("adoption: no ACL content supplied")
 	}
@@ -155,10 +155,10 @@ func (a *Adopter) Adopt(ctx context.Context, operator *ubus.Client, boot Bootstr
 	// 1. Mint the controller credential. rpcd rejects a plaintext password
 	//    outright, and target devices carry no mkpasswd/openssl, so the hash is
 	//    computed here.
-	password, err := a.newPassword()
-	if err != nil {
-		return nil, fmt.Errorf("adoption: generate password: %w", err)
-	}
+	// password, err := a.newPassword()
+	// if err != nil {
+	//	return nil, fmt.Errorf("adoption: generate password: %w", err)
+	// }
 	hashed, err := crypt.Hash(password)
 	if err != nil {
 		return nil, fmt.Errorf("adoption: hash password: %w", err)

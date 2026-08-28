@@ -146,7 +146,7 @@ func (d *Daemon) Adopt(ctx context.Context, req api.AdoptRequest) (*api.AdoptRes
 			return nil
 		},
 	}
-	res, err := a.Adopt(ctx, operator, boot)
+	res, err := a.Adopt(ctx, operator, boot, req.Password)
 	if err != nil {
 		return nil, err
 	}
