@@ -2599,14 +2599,20 @@ describe('Settings — neighbour reports', () => {
     const notice = await screen.findByRole('group', {
       name: 'Information: 802.11k neighbour reports',
     })
-    expect(within(notice).getByText(/every 15 minutes and after every Apply/)).toBeTruthy()
-    const toggle = within(notice).getByText('More information about neighbour reports')
-    const details = toggle.closest('details') as HTMLDetailsElement
-    expect(details.open).toBe(false)
-    expect(screen.getByRole('button', { name: 'Distribute now' }).closest('details')).toBeNull()
+    expect(notice.getAttribute('data-compact')).toBe('true')
+    expect(within(notice).getByText(/every 15 minutes and after Apply/)).toBeTruthy()
+    const toggle = within(notice).getByRole('button', {
+      name: 'More information about neighbour reports',
+    })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(notice.querySelector('details')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Distribute now' }).closest('.details-popover-panel')).toBeNull()
     fireEvent.click(toggle)
-    expect(details.open).toBe(true)
-    expect(within(notice).getByText(/An AP that restarts comes back with an empty list/)).toBeTruthy()
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    const details = screen.getByRole('dialog', {
+      name: 'Information: 802.11k neighbour reports',
+    })
+    expect(within(details).getByText(/An AP that restarts comes back with an empty list/)).toBeTruthy()
   })
 
   // The distinction the whole capability model exists to protect, at the UI
@@ -2995,14 +3001,18 @@ describe('Settings — wireless uplinks', () => {
     render(<Settings devices={[{ id: 7, name: 'no-cable' } as never]} />)
 
     const notice = await screen.findByRole('group', { name: 'Information: Wireless uplinks' })
-    expect(within(notice).getByText(/network must accept wireless bridges first/)).toBeTruthy()
-    const toggle = within(notice).getByText('More information about wireless uplinks')
-    const details = toggle.closest('details') as HTMLDetailsElement
-    expect(details.open).toBe(false)
-    expect(screen.getByRole('button', { name: 'Add uplink' }).closest('details')).toBeNull()
+    expect(notice.getAttribute('data-compact')).toBe('true')
+    expect(within(notice).getByText(/target network must allow wireless bridges/)).toBeTruthy()
+    const toggle = within(notice).getByRole('button', {
+      name: 'More information about wireless uplinks',
+    })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+    expect(notice.querySelector('details')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Add uplink' }).closest('.details-popover-panel')).toBeNull()
     fireEvent.click(toggle)
-    expect(details.open).toBe(true)
-    expect(within(notice).getByText(/joins as a 4-address bridge/)).toBeTruthy()
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    const details = screen.getByRole('dialog', { name: 'Information: Wireless uplinks' })
+    expect(within(details).getByText(/joins as a 4-address bridge/)).toBeTruthy()
   })
 
   // One per device, and the reason is said rather than merely enforced: a
@@ -4246,7 +4256,10 @@ describe('Logs', () => {
     const { unmount } = render(<Logs />)
     expectSinglePageHeading('Logs')
     expect(screen.getByText(/Controller, router, and audit events/)).toBeTruthy()
+    const sourceNotice = screen.getByRole('group', { name: 'Information: General event sources' })
+    expect(sourceNotice.getAttribute('data-compact')).toBe('true')
     const coverageNotice = await screen.findByRole('group', { name: 'Warning: Router log coverage' })
+    expect(coverageNotice.getAttribute('data-compact')).toBe('true')
     expect(within(coverageNotice).getByText(/Router log coverage is incomplete/)).toBeTruthy()
     expect(within(coverageNotice).getByText(/an empty result is not proven/)).toBeTruthy()
     const coverageToggle = within(coverageNotice).getByText('More information about log coverage')
@@ -4427,8 +4440,9 @@ describe('Logs', () => {
 
 	expect(await screen.findByText(/IPv6 router advertisements have no usable default route · 37 occurrences/)).toBeTruthy()
 	const notice = screen.getByRole('group', { name: 'Warning: IPv6 router advertisements' })
+	expect(notice.getAttribute('data-compact')).toBe('true')
 	expect(within(notice).getByRole('status').textContent ?? '').toMatch(
-	  /does not indicate an IPv4 outage/i,
+	  /IPv6-only.*does not indicate an IPv4 outage/i,
 	)
 	const toggle = within(notice).getByText('More information about this IPv6 warning')
 	const details = toggle.closest('details') as HTMLDetailsElement
@@ -4926,14 +4940,20 @@ describe('Dashboard', () => {
     const { Dashboard } = await import('./Dashboard')
     render(<Dashboard data={data as never} />)
 
-    expect(screen.getByText(/Counts use current, scoped evidence/)).toBeTruthy()
-    const summary = screen.getByText('How these counts are calculated').closest('summary') as HTMLElement
-    const disclosure = summary.closest('details') as HTMLDetailsElement
-    expect(disclosure.open).toBe(false)
+    const metricNotice = screen.getByRole('group', { name: 'Information: Dashboard metrics' })
+    expect(metricNotice.getAttribute('data-compact')).toBe('true')
+    expect(within(metricNotice).getByText(/Current scoped evidence/)).toBeTruthy()
+    const summary = within(metricNotice).getByRole('button', {
+      name: 'How these counts are calculated',
+    })
+    expect(summary.getAttribute('aria-expanded')).toBe('false')
+    expect(metricNotice.querySelector('details')).toBeNull()
 
     fireEvent.click(summary)
-    expect(disclosure.open).toBe(true)
-    expect(screen.getByText('Hide count definitions')).toBeTruthy()
+    expect(summary.getAttribute('aria-expanded')).toBe('true')
+    const definitions = screen.getByRole('dialog', { name: 'Information: Dashboard metrics' })
+    expect(within(definitions).getByText(/Wireless clients/)).toBeTruthy()
+    expect(within(metricNotice).getByRole('button', { name: 'Hide count definitions' })).toBeTruthy()
   })
 
   it('withholds a fleet total when any device station set is unknown', async () => {
@@ -5021,15 +5041,81 @@ describe('Dashboard', () => {
       } as never} />,
     )
 
-    expect(screen.getByText('Default route · wan')).toBeTruthy()
-    expect(screen.getByText('ICMP reachability to 1.1.1.1')).toBeTruthy()
-    expect(screen.getByText('Reachable')).toBeTruthy()
-    expect(screen.getByText('8.0 Mbps')).toBeTruthy()
-    expect(screen.getByText(/Last observed 2m ago/)).toBeTruthy()
-    expect(screen.getByText('12.4 ms')).toBeTruthy()
-    expect(screen.getByText('0.0%')).toBeTruthy()
-    expect(screen.getByText('Download traffic').parentElement?.textContent).not.toContain('0 bps')
-    expect(screen.getByText(/measures reachability, not gateway uptime/)).toBeTruthy()
+    const health = screen.getByRole('region', { name: 'Internet health details' })
+    const path = within(health).getByRole('group', { name: 'Observed gateway path' })
+    expect(within(path).getByText('Default route')).toBeTruthy()
+    expect(within(path).getByText('wan')).toBeTruthy()
+    expect(within(path).getByText('External ICMP target · from gateway')).toBeTruthy()
+    expect(within(path).getByText('1.1.1.1 · Reachable')).toBeTruthy()
+    expect(within(health).getByText('8.0 Mbps')).toBeTruthy()
+    expect(within(health).getByText(/Last observed 2m ago/)).toBeTruthy()
+    expect(within(health).getByText('12.4 ms')).toBeTruthy()
+    expect(within(health).getByText('0.0%')).toBeTruthy()
+    expect(within(health).getByText('Download traffic').closest('.dashboard-metric')?.textContent).not.toContain('0 bps')
+    expect(within(health).getAllByRole('img')).toHaveLength(4)
+    expect(within(health).getByText(/target reachability from the gateway, not gateway or ISP uptime/)).toBeTruthy()
+
+    const view = within(health).getByRole('group', { name: 'Internet health history view' })
+    fireEvent.click(within(view).getByRole('button', { name: 'Table' }))
+    expect(within(view).getByRole('button', { name: 'Table' }).getAttribute('aria-pressed')).toBe('true')
+    const tableRegion = within(health).getByRole('region', { name: 'Internet health history table' })
+    expect(within(tableRegion).getAllByRole('row')).toHaveLength(3)
+    expect(within(tableRegion).getAllByText('Unavailable')).toHaveLength(2)
+    expect(within(tableRegion).getAllByText('0.0%')).toHaveLength(2)
+    expect(within(tableRegion).getByText('8.0 Mbps')).toBeTruthy()
+  })
+
+  it('aligns sparse WAN history by timestamp and distinguishes unavailable samples from zero', async () => {
+    const now = Date.now() - 120_000
+    const timestamps = [now - 600_000, now - 300_000, now]
+    const metric = (kind: string, unit: string, points: Array<{ ts: number; value: number | null }>) => ({
+      kind,
+      unit,
+      meaning: `${kind} from the selected gateway`,
+      status: 'fresh',
+      value: points.at(-1)?.value ?? null,
+      as_of: now,
+      points,
+    })
+    const { Dashboard } = await import('./Dashboard')
+    render(<Dashboard data={{
+      ...data,
+      wan: {
+        target: '1.1.1.1', probe: 'icmp', freshness: 'fresh', as_of: now,
+        gateway: { device_id: 1, name: 'Gateway', route_interface: 'wan', series_key: 'wan' },
+        resolution: '5m', bucket_ms: 300_000, from: timestamps[0], to: timestamps[2],
+        metrics: {
+          download_bps: metric('download_bps', 'B/s', [
+            { ts: timestamps[0], value: 0 },
+            { ts: timestamps[2], value: null },
+          ]),
+          upload_bps: metric('upload_bps', 'B/s', [
+            { ts: timestamps[1], value: 125_000 },
+            { ts: timestamps[2], value: 0 },
+          ]),
+          latency_ms: metric('latency_ms', 'ms', [
+            { ts: timestamps[0], value: null },
+            { ts: timestamps[1], value: 0 },
+          ]),
+          loss_pct: metric('loss_pct', 'percent', [{ ts: timestamps[2], value: 0 }]),
+          reachable: metric('reachable', 'boolean', [{ ts: timestamps[2], value: 1 }]),
+        },
+      },
+    } as never} />)
+
+    const health = screen.getByRole('region', { name: 'Internet health details' })
+    const view = within(health).getByRole('group', { name: 'Internet health history view' })
+    fireEvent.click(within(view).getByRole('button', { name: 'Table' }))
+    const table = within(health).getByRole('region', { name: 'Internet health history table' })
+    const rows = within(table).getAllByRole('row')
+    expect(within(rows[0]).getAllByRole('columnheader').map((cell) => cell.textContent)).toEqual([
+      'Time', 'Download', 'Upload', 'Latency', 'Loss',
+    ])
+    expect(rows.slice(1).map((row) => within(row).getAllByRole('cell').slice(1).map((cell) => cell.textContent))).toEqual([
+      ['0 bps', 'Unavailable', 'Unavailable', 'Unavailable'],
+      ['Unavailable', '1.0 Mbps', '0.0 ms', 'Unavailable'],
+      ['Unavailable', '0 bps', 'Unavailable', '0.0%'],
+    ])
   })
 
   it('keeps the selected active gateway healthy when another gateway has no route', async () => {
@@ -5053,11 +5139,20 @@ describe('Dashboard', () => {
     expect(screen.getByRole('alert').textContent).toContain('Backup')
   })
 
-  it('requires explicit data-use consent before starting a controller speed test', async () => {
+  it('uses the explicit Run action as plan-bound acknowledgement and keeps exact impact in a popover', async () => {
     const { Dashboard } = await import('./Dashboard')
+    const attempts = ['history-newest', 'history-second', 'history-third', 'history-hidden'].map((provider, index) => ({
+      id: `${index + 1}`.repeat(32), plan_id: speedPlanID,
+      state: 'completed', phase: 'complete', progress_percent: 100,
+      provider, method: 'embedded HTTP', provenance: 'controller-host', endpoint: 'https://speed.example',
+      estimated_bytes: 500_000_000, created_at: 30 - index, finished_at: 31 - index,
+      download_mbps: 100 - index, upload_mbps: 50 - index,
+      idle_latency_ms: 10, idle_jitter_ms: 1, loaded_latency_ms: null, loaded_jitter_ms: null,
+      bytes_downloaded: 10, bytes_uploaded: 10,
+    }))
     api.speedTests.mockResolvedValueOnce({
-      jobs: [], active: null,
-      limits: { max_history: 20 },
+      jobs: attempts, active: null,
+      limits: { max_history: 3 },
       test: {
         plan_id: speedPlanID,
         provider: 'librespeed', method: 'embedded HTTP', provenance: 'controller-host',
@@ -5076,32 +5171,91 @@ describe('Dashboard', () => {
       estimated_bytes: 500_000_000, created_at: 1, bytes_downloaded: 0, bytes_uploaded: 0,
     })
     render(<Dashboard data={data as never} />)
-    await waitFor(() => expect(api.speedTests).toHaveBeenCalledWith(20))
+    await waitFor(() => expect(api.speedTests).toHaveBeenCalledWith(3))
+    expect(screen.getByLabelText(/Throughput history for 3 completed tests/)).toBeTruthy()
+    expect(screen.getAllByText(/history-third/).length).toBeGreaterThan(0)
+    expect(screen.queryByText(/history-hidden/)).toBeNull()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review speed test' }))
-    expect(screen.getByText('librespeed')).toBeTruthy()
-    expect(screen.getByText('https://speed.example')).toBeTruthy()
-    expect(screen.getByText('https://speed.example/down')).toBeTruthy()
-    expect(screen.getByText('https://speed.example/up')).toBeTruthy()
-    expect(screen.getByText('embedded HTTP')).toBeTruthy()
-    expect(screen.getByText(/public IP are visible to the provider/)).toBeTruthy()
-    expect(screen.getByText(/approximately 500 MB plus protocol overhead/)).toBeTruthy()
-    expect(screen.getAllByText('false')).toHaveLength(2)
-    const consent = screen.getByRole('checkbox', {
-      name: /may use data and temporarily saturate the connection/i,
-    }) as HTMLInputElement
-    const start = screen.getByRole('button', { name: 'Start speed test' }) as HTMLButtonElement
-    expect(start.disabled).toBe(true)
-    fireEvent.click(consent)
-    expect(start.disabled).toBe(false)
-    fireEvent.click(start)
+    const speed = screen.getByRole('group', { name: 'Controller speed test' })
+    const run = within(speed).getByRole('button', { name: 'Run speed test' }) as HTMLButtonElement
+    expect(run.disabled).toBe(false)
+    expect(screen.queryByRole('checkbox')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Review speed test' })).toBeNull()
+    const consequence = document.getElementById(run.getAttribute('aria-describedby') || '')
+    expect(consequence?.textContent).toMatch(
+      /librespeed via https:\/\/speed\.example.*controller host.*500 MB \+ overhead.*up to 90 seconds.*no router calls or changes.*saturate WAN.*public IP/i,
+    )
+
+    const impact = within(speed).getByRole('button', { name: 'Impact & consent' })
+    expect(document.getElementById(impact.getAttribute('aria-controls') || '')).toBeTruthy()
+    expect(impact.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(impact)
+    const dialog = screen.getByRole('dialog', { name: 'Speed test impact & consent' })
+    expect(impact.getAttribute('aria-expanded')).toBe('true')
+    expect(within(dialog).getByText('https://speed.example')).toBeTruthy()
+    expect(within(dialog).getByText('https://speed.example/down')).toBeTruthy()
+    expect(within(dialog).getByText('https://speed.example/up')).toBeTruthy()
+    expect(within(dialog).getByText('embedded HTTP')).toBeTruthy()
+    expect(within(dialog).getByText(/public IP are visible to the provider/)).toBeTruthy()
+    expect(within(dialog).getByText('About 500 MB plus protocol overhead')).toBeTruthy()
+    expect(within(dialog).getAllByText('false')).toHaveLength(2)
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Close speed test impact and consent' }))
+    await waitFor(() => expect(document.activeElement).toBe(impact))
+
+    fireEvent.click(run)
+    fireEvent.click(run)
     await waitFor(() => expect(api.startSpeedTest).toHaveBeenCalledWith(speedPlanID, true))
+    expect(api.startSpeedTest).toHaveBeenCalledTimes(1)
   })
 
-  it('never invents absent safety disclosures or enables Start for a partial plan', async () => {
+  it('dismisses mouse-opened impact on pointer leave but pins keyboard and touch activation', async () => {
     const { Dashboard } = await import('./Dashboard')
     api.speedTests.mockResolvedValueOnce({
-      jobs: [], active: null, limits: { max_history: 20 },
+      jobs: [], active: null, limits: { max_history: 3 },
+      test: {
+        plan_id: speedPlanID,
+        provider: 'Cloudflare', method: 'embedded HTTP', provenance: 'controller-host',
+        endpoint: 'https://speed.example', download_endpoint: 'https://speed.example/down',
+        upload_endpoint: 'https://speed.example/up', estimated_bytes: 15_000_000, max_duration_seconds: 30,
+      },
+      disclosure: {
+        vantage_point: 'controller-host', router_management_calls: false, router_changes: false,
+        saturation_warning: 'May temporarily saturate the gateway/WAN.',
+        privacy: "The controller host's public IP is visible to Cloudflare.",
+      },
+    })
+    render(<Dashboard data={data as never} />)
+    const impact = await screen.findByRole('button', { name: 'Impact & consent' })
+    const region = impact.closest('.speedtest-impact') as HTMLElement
+
+    fireEvent.pointerEnter(region, { pointerType: 'mouse' })
+    expect(screen.queryByRole('dialog', { name: 'Speed test impact & consent' })).toBeNull()
+    fireEvent.pointerDown(impact, { pointerType: 'mouse' })
+    fireEvent.click(impact, { detail: 1 })
+    expect(screen.getByRole('dialog', { name: 'Speed test impact & consent' })).toBeTruthy()
+    fireEvent.pointerLeave(region, { pointerType: 'mouse' })
+    expect(screen.queryByRole('dialog', { name: 'Speed test impact & consent' })).toBeNull()
+
+    fireEvent.click(impact, { detail: 0 })
+    const keyboardDialog = screen.getByRole('dialog', { name: 'Speed test impact & consent' })
+    fireEvent.pointerLeave(region, { pointerType: 'mouse' })
+    expect(screen.getByRole('dialog', { name: 'Speed test impact & consent' })).toBe(keyboardDialog)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(document.activeElement).toBe(impact))
+    expect(screen.queryByRole('dialog', { name: 'Speed test impact & consent' })).toBeNull()
+
+    fireEvent.pointerDown(impact, { pointerType: 'touch' })
+    fireEvent.click(impact, { detail: 1 })
+    fireEvent.pointerLeave(region, { pointerType: 'mouse' })
+    expect(screen.getByRole('dialog', { name: 'Speed test impact & consent' })).toBeTruthy()
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByRole('dialog', { name: 'Speed test impact & consent' })).toBeNull()
+  })
+
+  it('never invents absent safety disclosures or enables Run for a partial plan', async () => {
+    const { Dashboard } = await import('./Dashboard')
+    api.speedTests.mockResolvedValueOnce({
+      jobs: [], active: null, limits: { max_history: 3 },
       test: {
         plan_id: speedPlanID,
         provider: 'librespeed', method: 'embedded HTTP', provenance: 'controller-host',
@@ -5118,12 +5272,15 @@ describe('Dashboard', () => {
     } as never)
     render(<Dashboard data={data as never} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review speed test' }))
-    await screen.findByText(/safety disclosures are unavailable or incomplete/)
-    expect(screen.getAllByText('Unavailable')).toHaveLength(2)
-    expect(screen.getByText('Privacy disclosure unavailable.')).toBeTruthy()
-    fireEvent.click(screen.getByRole('checkbox', { name: /may use data/i }))
-    expect((screen.getByRole('button', { name: 'Start speed test' }) as HTMLButtonElement).disabled).toBe(true)
+    const impact = await screen.findByRole('button', { name: 'Impact & consent' })
+    expect(screen.getByText(/safety disclosures are unavailable or incomplete/)).toBeTruthy()
+    expect(screen.getByRole('group', { name: 'Controller speed test' })
+      .querySelector('.speedtest-launch-consequence')?.textContent).toMatch(/public-IP disclosure unavailable/i)
+    fireEvent.click(impact)
+    const dialog = screen.getByRole('dialog', { name: 'Speed test impact & consent' })
+    expect(within(dialog).getAllByText('Unavailable')).toHaveLength(2)
+    expect(within(dialog).getByText('Public-IP disclosure unavailable.')).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Run speed test' }) as HTMLButtonElement).disabled).toBe(true)
     expect(api.startSpeedTest).not.toHaveBeenCalled()
   })
 
@@ -5135,7 +5292,7 @@ describe('Dashboard', () => {
         endpoint: 'https://speed.example', download_endpoint: 'https://speed.example/down',
         upload_endpoint: 'https://speed.example/up', estimated_bytes: 400_000_000, max_duration_seconds: 90,
       },
-      limits: { max_history: 20 },
+      limits: { max_history: 3 },
       disclosure: {
         vantage_point: 'controller-host', router_management_calls: false, router_changes: false,
         saturation_warning: 'May saturate the WAN.', privacy: 'Public IP is visible to the provider.',
@@ -5158,18 +5315,14 @@ describe('Dashboard', () => {
     const { Dashboard } = await import('./Dashboard')
     render(<Dashboard data={data as never} />)
 
-    fireEvent.click(screen.getByRole('button', { name: 'Review speed test' }))
-    await screen.findByText('librespeed')
-    fireEvent.click(screen.getByRole('checkbox', { name: /may use data/i }))
-    fireEvent.click(screen.getByRole('button', { name: 'Start speed test' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Run speed test' }))
 
     const progress = await screen.findByRole('progressbar', { name: 'Controller speed test progress' })
     expect(progress.getAttribute('aria-valuetext')).toContain('latency')
     expect(api.speedTests).toHaveBeenCalledTimes(2)
-    const retry = await screen.findByRole('button', { name: 'Start speed test' }, { timeout: 2_500 }) as HTMLButtonElement
-    const freshConsent = screen.getByRole('checkbox', { name: /may use data/i }) as HTMLInputElement
-    expect(freshConsent.checked).toBe(false)
-    expect(retry.disabled).toBe(true)
+    const retry = await screen.findByRole('button', { name: 'Run speed test' }, { timeout: 2_500 }) as HTMLButtonElement
+    expect(retry.disabled).toBe(false)
+    expect(api.startSpeedTest).toHaveBeenCalledTimes(1)
   })
 
   it('shows controller provenance, progress, cancellation and result history', async () => {
@@ -5189,7 +5342,7 @@ describe('Dashboard', () => {
     }
     api.speedTests.mockResolvedValueOnce({
       jobs: [active, completed], active,
-      limits: { max_history: 20 },
+      limits: { max_history: 3 },
     })
     api.cancelSpeedTest.mockResolvedValue({ ...active, state: 'cancelling', phase: 'cancelling' })
     const { Dashboard } = await import('./Dashboard')
@@ -5199,8 +5352,10 @@ describe('Dashboard', () => {
     expect(progress.getAttribute('aria-valuenow')).toBe('42')
     expect(screen.getByText(/librespeed.*embedded.*controller-host.*download.*speed\.example/)).toBeTruthy()
     expect(screen.getByText('Loaded latency')).toBeTruthy()
-    expect(screen.getByText(/200\.0 Mbps ↓.*40\.0 Mbps ↑.*9\.0 ms/)).toBeTruthy()
-    expect(screen.getByText(/— loaded latency.*— loaded jitter/)).toBeTruthy()
+    expect(screen.getByRole('meter', { name: 'Download throughput' }).getAttribute('aria-valuetext')).toBe('200.0 Mbps')
+    expect(screen.getByRole('meter', { name: 'Upload throughput' }).getAttribute('aria-valuetext')).toBe('40.0 Mbps')
+    expect(screen.getByText(/Idle 9\.0 ms latency · 1\.5 ms jitter/)).toBeTruthy()
+    expect(screen.getByText('Loaded unavailable')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(api.cancelSpeedTest).toHaveBeenCalledWith(active.id))
   })
@@ -5213,7 +5368,7 @@ describe('Dashboard', () => {
       bytes_downloaded: 30_000_000, bytes_uploaded: 10_000_000,
     }
     const collection = {
-      jobs: [active], active, limits: { max_history: 20 },
+      jobs: [active], active, limits: { max_history: 3 },
       test: {
         plan_id: speedPlanID,
         provider: 'librespeed', method: 'embedded', provenance: 'controller-host',
