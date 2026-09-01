@@ -5,7 +5,7 @@ description: Controller roles, step-up authentication, sessions, and the separat
 
 # Permissions and sessions
 
-oonfeeWRT v0.1.1 has local controller accounts with four enforced roles. These
+oonfeeWRT v0.1.3 has local controller accounts with four enforced roles. These
 are not OpenWrt accounts: controller authorization and router access are
 separate boundaries.
 
@@ -32,6 +32,7 @@ general event stream is readable by lower roles.
 | Run controller-host speed test or cancel one | No | Yes | Yes | Yes |
 | Run an acknowledged RF scan or on-air verification | No | Yes | Yes | Yes |
 | Discover, inspect, adopt, re-probe, rename, or un-adopt a device | No | No | Yes | Yes |
+| Download the sanitized compatibility report returned by Inspect | No | No | Yes | Yes |
 | Edit WLANs, networks, zones, policies, groups, meshes, uplinks, or overrides | No | No | Yes | Yes |
 | Preview and Apply configuration | No | No | Yes | Yes |
 | Generate/download diagnostics | No | No | Yes | Yes |
@@ -42,6 +43,11 @@ general event stream is readable by lower roles.
 
 The server enforces this matrix; hiding a control in the UI is not the security
 boundary.
+
+Inspect and its compatibility report use the same Administrator-or-Owner,
+authenticated, CSRF-protected request. Export is not a second server endpoint:
+the browser downloads the allowlisted report already returned in that response.
+After download, controller roles no longer govern copies of the JSON file.
 
 ## First account and owner protection
 
@@ -72,7 +78,7 @@ letting old authorization continue.
 Sessions exist only in controller memory. A controller restart signs everyone
 out, including a restart performed during restore.
 
-| Control | v0.1.1 behavior |
+| Control | v0.1.3 behavior |
 |---|---|
 | Idle expiry | 12 hours after last use |
 | Absolute expiry | 7 days after creation, even when active |
@@ -132,9 +138,15 @@ After adoption, the controller stores its scoped `oonfeewrt` credential sealed
 in SQLite. The matching keyring and runtime passphrase are required to open it.
 See [Architecture](./architecture.md) and [Safety model](./safety.md).
 
+v0.1.3's effective-WAN observation is background collection, not an interactive
+account action. The scoped router credential calls `network.interface dump` and
+the pre-existing ACL grant for `/sbin/ip -4 route show table all`. The command
+is read-only, and upgrading a router already adopted by v0.1.2 requires neither
+an ACL refresh nor a device-administrator credential.
+
 ## Deployment implications
 
-The v0.1.1 listener is plain HTTP. Cookies are marked `Secure` only when the
+The v0.1.3 listener is plain HTTP. Cookies are marked `Secure` only when the
 request is TLS or the reverse proxy supplies `X-Forwarded-Proto: https`.
 Therefore:
 

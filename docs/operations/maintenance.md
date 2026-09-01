@@ -46,13 +46,13 @@ The daemon writes human-readable structured logs to standard error. Read them th
 For Compose:
 
 ```sh
-OONFEE_VERSION=v0.1.1 docker compose logs --tail=200 oonfeewrt
+OONFEE_VERSION=v0.1.3 docker compose logs --tail=200 oonfeewrt
 ```
 
 To follow new Compose output:
 
 ```sh
-OONFEE_VERSION=v0.1.1 docker compose logs --follow oonfeewrt
+OONFEE_VERSION=v0.1.3 docker compose logs --follow oonfeewrt
 ```
 
 ### Retained private log
@@ -82,6 +82,12 @@ Review:
 - topology evidence summary.
 
 The WAN probe runs only through the managed Gateway, sends exactly three ICMP packets to `1.1.1.1`, and runs at most once per minute. It is a fixed reachability observation, not DNS/HTTP validation or a claim of ISP uptime.
+
+The displayed Gateway path is a separate, slower observation. v0.1.3 pairs the
+installed main-table IPv4 route with OpenWrt logical-interface evidence about
+every 15 minutes. It supports ordinary DHCP, static, and PPPoE defaults, but is
+not a rapid failover monitor and does not model policy routing, `mwan3`,
+manual WAN selection, per-uplink health, or bond members.
 
 ### Devices
 
@@ -114,13 +120,19 @@ Shipped defaults:
 
 Polls are staggered across devices, batched where supported, and completely quiesced during that device's Apply/confirm cycle.
 
+Network and topology discovery, including the effective WAN route, uses a
+15-minute cadence even while the device detail view is focused. Missing,
+malformed, ambiguous, or inconsistent route/interface evidence leaves the
+current source unavailable and preserves the last proved network cache; it
+does not guess a new uplink.
+
 The per-device poll-interval control can make baseline polling slower, not faster than the controller default. Use it for constrained or remote hardware. After saving, the daemon re-registers the device so the new interval takes effect without restart.
 
 ## Automatic retention
 
 The controller holds raw telemetry in memory temporarily and stores completed rollups in SQLite:
 
-| Data | v0.1.1 retention/bound |
+| Data | v0.1.3 retention/bound |
 |---|---|
 | Five-minute average/min/max/count | 14 days |
 | Hourly average/min/max/count | 396 days (13 months) |
@@ -158,7 +170,7 @@ The Dashboard speed test:
 - exposes the controller host's public IP and test requests to Cloudflare;
 - measures idle latency/jitter and throughput, not loaded latency/jitter.
 
-The Run action is the plan-bound acknowledgement. Do not schedule repeated tests; v0.1.1 exposes an explicit operator action, not an automatic test loop.
+The Run action is the plan-bound acknowledgement. Do not schedule repeated tests; v0.1.3 exposes an explicit operator action, not an automatic test loop.
 
 ## Generate safe diagnostics
 
@@ -200,7 +212,7 @@ For a foreground binary, press `Ctrl-C` once and wait. A second signal is an eme
 For Compose:
 
 ```sh
-OONFEE_VERSION=v0.1.1 docker compose stop
+OONFEE_VERSION=v0.1.3 docker compose stop
 ```
 
 The supplied service grants 150 seconds. Avoid `docker kill` during Apply or restore confirmation.
@@ -222,8 +234,10 @@ Periodically:
 2. Keep its export passphrase separately and run a disposable restore preview.
 3. Review owner accounts and active sessions.
 4. Review device firmware/capability freshness and explicit ACL-refresh notices.
-5. Check host disk/RAM and the controller data-volume backup.
-6. Read release notes before changing the daemon or image.
+5. On PPPoE or multi-uplink sites, compare the Dashboard and topology uplink
+   with the installed main-table route after planned routing changes.
+6. Check host disk/RAM and the controller data-volume backup.
+7. Read release notes before changing the daemon or image.
 
 ## Troubleshooting and recovery
 
@@ -242,6 +256,13 @@ Verify management routing and the device's uhttpd/rpcd service. Review certifica
 ### Data is missing or stale
 
 Read the displayed source gap. Do not interpret `Unavailable` as zero. A stored capability may need explicit reprobe after firmware changes; ACL widening is an explicit reviewed refresh, never a polling side effect.
+
+For missing WAN path or traffic data, distinguish the one-minute ICMP probe
+from the 15-minute route/interface observation. Equal-metric distinct
+defaults, ECMP/multipath, policy routing, or a kernel device that cannot map to
+one active logical interface are intentional evidence gaps. After correcting
+a normal DHCP/static/PPPoE route, wait for the next network/topology cycle.
+Upgrading from v0.1.2 does not itself require ACL refresh or re-adoption.
 
 ### Apply status is unknown after reload
 

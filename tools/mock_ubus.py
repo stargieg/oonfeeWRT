@@ -436,6 +436,30 @@ WIRELESS_DEVICES = {
                      "wlan1", "default_radio1", "OpenWrt"),
 }
 
+DEFAULT_BOARD = {
+    "kernel": "6.6.52", "hostname": "wrt3200acm",
+    "system": "ARMv7 Processor rev 1 (v7l)",
+    "model": "Linksys WRT3200ACM", "board_name": "linksys,wrt3200acm",
+    "rootfs_type": "squashfs",
+    "release": {"distribution": "OpenWrt", "version": "25.12.0",
+                "revision": "r28000-abcdef", "target": "mvebu/cortexa9",
+                "description": "OpenWrt 25.12.0"},
+}
+DEFAULT_BOARD_NETWORK = {
+    "lan": {"device": "br-lan", "ports": ["lan1", "lan2", "lan3", "lan4"]},
+    "wan": {"device": "wan"},
+}
+DEFAULT_NETWORK_DEVICES = {
+    "br-lan": {"devtype": "bridge"}, "eth0": {"devtype": "ethernet"},
+    "wan": {"devtype": "dsa", "parent": "eth0"},
+    **{f"lan{i}": {"devtype": "dsa", "parent": "eth0"} for i in range(1, 5)},
+    "wlan0": {"devtype": "wlan"}, "wlan1": {"devtype": "wlan"},
+}
+
+board = copy.deepcopy(DEFAULT_BOARD)
+board_network = copy.deepcopy(DEFAULT_BOARD_NETWORK)
+network_devices = copy.deepcopy(DEFAULT_NETWORK_DEVICES)
+
 INITIAL_COMMITTED = copy.deepcopy(committed)
 INITIAL_WIRELESS_DEVICES = copy.deepcopy(WIRELESS_DEVICES)
 
@@ -501,6 +525,12 @@ def reset_fixture(sid):
         NR_LISTS.clear()
         WIRELESS_DEVICES.clear()
         WIRELESS_DEVICES.update(copy.deepcopy(INITIAL_WIRELESS_DEVICES))
+        board.clear()
+        board.update(copy.deepcopy(DEFAULT_BOARD))
+        board_network.clear()
+        board_network.update(copy.deepcopy(DEFAULT_BOARD_NETWORK))
+        network_devices.clear()
+        network_devices.update(copy.deepcopy(DEFAULT_NETWORK_DEVICES))
         info_calls = 0
         survey_calls = 0
         nft_runtime_mode = "live"
@@ -817,6 +847,9 @@ def exec_cmd(rid, cmd, params):
     if cmd == "brctl" and len(params) == 2 and params[0] == "showmacs":
         return out(0, "port no mac addr is local? ageing timer\n"
                       "  1 aa:bb:cc:11:22:33 no 12.34\n")
+    if cmd == "ip" and params == ["-4", "route", "show", "table", "all"]:
+        return out(0, "default via 203.0.113.1 dev wan proto static\n"
+                      "192.168.1.0/24 dev br-lan scope link\n")
     if cmd == "nlbw":
         return out(0, '{"columns":["mac","conns","rx_bytes","rx_pkts",'
                       '"tx_bytes","tx_pkts"],"data":['
@@ -910,6 +943,7 @@ def runtime_interfaces():
                    "proto": section.get("proto", "")}
             if section.get("device"):
                 row["device"] = section["device"]
+                row["l3_device"] = section["device"]
             if section.get("ipaddr") and section.get("netmask"):
                 try:
                     prefix = ipaddress.IPv4Network(
@@ -1003,15 +1037,7 @@ def handle_one(req):
         return ok(rid, {"ubus_rpc_session": sess, "timeout": 300, "expires": 300})
 
     if obj == "system" and meth == "board":
-        return ok(rid, {
-            "kernel": "6.6.52", "hostname": "wrt3200acm",
-            "system": "ARMv7 Processor rev 1 (v7l)",
-            "model": "Linksys WRT3200ACM", "board_name": "linksys,wrt3200acm",
-            "rootfs_type": "squashfs",
-            "release": {"distribution": "OpenWrt", "version": "25.12.0",
-                        "revision": "r28000-abcdef",
-                        "target": "mvebu/cortexa9",
-                        "description": "OpenWrt 25.12.0"}})
+        return ok(rid, copy.deepcopy(board))
     if obj == "system" and meth == "info":
         return ok(rid, {"uptime": 400000, "load": [8000, 9000, 8500],
                         "memory": {"total": 536870912, "free": 340000000,
@@ -1084,6 +1110,20 @@ def handle_one(req):
         for pair in args.get("pairs") or []:
             acl_gaps.add((pair.get("object"), pair.get("method", "*")))
         return ok(rid, {"gaps": sorted(f"{o}.{m}" for o, m in acl_gaps)})
+    if obj == "__test" and meth == "set_board":
+        values = args.get("board")
+        network = args.get("network")
+        devices = args.get("network_devices")
+        if not all(isinstance(value, dict) for value in (values, network, devices)):
+            return err(rid, 2)
+        with lock:
+            board.clear()
+            board.update(copy.deepcopy(values))
+            board_network.clear()
+            board_network.update(copy.deepcopy(network))
+            network_devices.clear()
+            network_devices.update(copy.deepcopy(devices))
+        return ok(rid, {})
     if obj == "__test" and meth == "set_nft_runtime":
         global nft_runtime_mode, nft_runtime_snapshot, nft_lag_reads
         mode = args.get("mode") or "live"
@@ -1271,6 +1311,8 @@ def handle_one(req):
         for row in interfaces:
             if row["interface"] == "wan":
                 row["ipv4-address"] = [{"address": "203.0.113.7", "mask": 24}]
+                row["route"] = [{"target": "0.0.0.0", "mask": 0,
+                                 "nexthop": "203.0.113.1"}]
         return ok(rid, {"interface": interfaces})
     if obj == "network.device" and meth == "status":
         return ok(rid, {"br-lan": {"up": True, "carrier": True, "mtu": 1500,
@@ -1369,11 +1411,7 @@ def handle_one(req):
 
     if obj == "luci-rpc":
         if meth == "getBoardJSON":
-            return ok(rid, {"network": {
-                "lan": {"device": "br-lan",
-                        "ports": ["lan1", "lan2", "lan3", "lan4"]},
-                "wan": {"device": "wan"},
-            }})
+            return ok(rid, {"network": copy.deepcopy(board_network)})
         if meth == "getHostHints":
             return ok(rid, {"AA:BB:CC:11:22:33":
                             {"ipaddrs": ["192.0.2.130"],
@@ -1384,14 +1422,7 @@ def handle_one(req):
             # DSA user ports carry devtype "dsa" with the conduit as parent —
             # this is how the controller detects a switch without any
             # filesystem grant.
-            devs = {"br-lan": {"devtype": "bridge"},
-                    "eth0": {"devtype": "ethernet"},
-                    "wan": {"devtype": "dsa", "parent": "eth0"}}
-            for i in range(1, 5):
-                devs[f"lan{i}"] = {"devtype": "dsa", "parent": "eth0"}
-            for w in ("wlan0", "wlan1"):
-                devs[w] = {"devtype": "wlan"}
-            return ok(rid, devs)
+            return ok(rid, copy.deepcopy(network_devices))
         if meth == "getWirelessDevices":
             with lock:
                 return ok(rid, copy.deepcopy(WIRELESS_DEVICES))

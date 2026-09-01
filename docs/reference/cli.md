@@ -1,11 +1,11 @@
 ---
 title: CLI and environment reference
-description: Exact oonfeewrtd and recovery helper flags, environment variables, defaults, and safe command examples for v0.1.1.
+description: Exact oonfeewrtd and recovery helper flags, environment variables, defaults, and safe command examples for v0.1.3.
 ---
 
 # CLI and environment reference
 
-This reference applies to the **v0.1.1** release executables
+This reference applies to the **v0.1.3** release executables
 `oonfeewrtd` and `oonfeewrt-recoverycheck`.
 
 ## `oonfeewrtd`
@@ -24,7 +24,7 @@ oonfeewrtd [flags]
 | `-log-level <level>` | `info` | One of `debug`, `info`, `warn`, `error` |
 | `-healthcheck` | false | Probe the configured listener's `/healthz` and exit without opening controller data |
 | `-version` | false | Print the embedded version and exit without opening controller data |
-| `-h`, `-help` | — | Print standard flag help; v0.1.1 then exits non-zero (a known CLI quirk) |
+| `-h`, `-help` | — | Print standard flag help; v0.1.3 then exits non-zero (a known CLI quirk) |
 
 Flags are parsed after environment configuration, so an explicit flag overrides
 a valid corresponding environment value. Environment loading/validation happens
@@ -78,10 +78,10 @@ starting with an empty keyring.
 oonfeewrtd -version
 ```
 
-For release v0.1.1 the output must be:
+For release v0.1.3 the output must be:
 
 ```text
-v0.1.1
+v0.1.3
 ```
 
 ### Interactive local start
@@ -135,6 +135,23 @@ oonfeewrtd \
 
 Debug logging can contain more operational detail. Reproduce the problem,
 collect a diagnostics bundle if appropriate, then return to `info`.
+
+## Patch-release features without CLI flags
+
+v0.1.2 compatibility export and v0.1.3 effective-WAN selection are automatic
+application behavior; neither adds a daemon flag or environment variable.
+
+- To create a compatibility report, sign in as Administrator or Owner, open
+  **Adopt a device**, complete read-only Inspect, and choose **Export sanitized
+  compatibility report**. The browser downloads the server-produced JSON. There
+  is no supported command that serializes the full Inspect response, because it
+  contains fields outside the share-safe allowlist.
+- Effective-WAN evidence is collected automatically for adopted gateways on the
+  network/topology cycle. Existing v0.1.2 adoptions need no CLI migration, ACL
+  refresh, or re-adoption. There is no manual-WAN-selection flag in v0.1.3.
+
+Both patch releases use database schema 19. CLI compatibility does not extend
+the current REST/WebSocket surface into a stable third-party API guarantee.
 
 ## Healthcheck
 
@@ -206,7 +223,8 @@ schema=19 devices=<n> credentials=<n> owned_sections=<n> wlans=<n> meshes=<n>
 
 Those counts prove that the pair can be opened and its recovery invariants are
 readable. They do not prove that every router is reachable or currently matches
-the stored desired state.
+the stored desired state, that a compatibility report can be produced, or that
+the current default route can be proved.
 
 ## Manual backup verification example
 

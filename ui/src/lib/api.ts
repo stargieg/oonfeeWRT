@@ -260,6 +260,9 @@ export interface TakeoverBrief {
 export interface DeviceDetail extends Device {
   capabilities: Registry | null
   interfaces: string[]
+  /** Current kernel L3 device carrying the proved IPv4 default route. Null is
+   * an explicit absence; undefined means an older controller response. */
+  wan_interface?: string | null
   radios: string[]
   stations: string[]
   degraded?: Degradation[]
@@ -879,6 +882,9 @@ export interface InspectResult {
   class: string
   firmware: string
   radio_count: number | null
+  /** Board-declared LAN device. A no-switch router may expose only this. */
+  lan_device?: string
+  /** Independently addressable switch members, not a direct LAN device. */
   lan_ports: string[]
   wan_port?: string
   /** What inspection can safely claim about the switch. DSA support remains
@@ -895,6 +901,59 @@ export interface InspectResult {
   }
   notes?: string[]
   unobservable?: string[]
+  /** Server-built strict allowlist for sharing hardware compatibility evidence.
+   *  Absent only when an older server responds or evidence fails safety bounds. */
+  compatibility_report?: CompatibilityReport
+}
+
+export interface CompatibilityReport {
+  format: 'oonfeewrt-compatibility-report'
+  format_version: 1
+  controller_version: string
+  evidence: {
+    source: 'read-only-inspection'
+    router_changes: false
+    persisted: false
+  }
+  privacy: {
+    sanitized: true
+    excluded: string[]
+  }
+  hardware: {
+    board: {
+      model: string
+      board_name: string
+      system: string
+      kernel: string
+      target: string
+      release: string
+      rootfs_type: string
+    }
+    class: string
+    radio_inventory_state: 'unknown' | 'present' | 'absent' | 'not-observable'
+    radio_count: number | null
+    radios: {
+      band: string
+      hardware: string
+      hw_modes: string[]
+      survey_state: 'unknown' | 'present' | 'absent' | 'not-observable'
+      noise_stability: 'unknown' | 'present' | 'absent' | 'not-observable'
+    }[]
+    ports: {
+      lan_device?: string
+      lan_ports: string[]
+      wan_device?: string
+      switch_mode: InspectResult['switch_mode']
+    }
+  }
+  features: {
+    name: string
+    state: 'unknown' | 'present' | 'absent' | 'not-observable'
+  }[]
+  functions: {
+    supported: DeviceFunction[]
+    unknown: DeviceFunction[]
+  }
 }
 
 export interface UnadoptResult {

@@ -1,12 +1,12 @@
 ---
 title: Requirements and compatibility
-description: Controller host, network, OpenWrt, storage, and security requirements for oonfeeWRT v0.1.1.
+description: Controller host, network, OpenWrt, storage, and security requirements for oonfeeWRT v0.1.3.
 ---
 
 # Requirements and compatibility
 
 Use this checklist before installing or adopting a router with **oonfeeWRT
-v0.1.1**.
+v0.1.3**.
 
 ## Controller host
 
@@ -67,6 +67,27 @@ not silently install them. The only shipped optional-package workflow is LLDP,
 which separately plans and may install official-feed `lldpd` packages after
 explicit approval. See [Capabilities](./capabilities.md).
 
+### Effective-WAN observation prerequisites
+
+v0.1.3's WAN selection needs two read-only facts from a gateway in the same
+slow topology poll:
+
+- successful `network.interface dump` through ubus; and
+- successful scoped `file.exec` of `/sbin/ip -4 route show table all`.
+
+The shipped ACL has allowed that exact route command since v0.1.0, so upgrading
+an already adopted v0.1.2 device requires no ACL refresh, re-adoption, package,
+or device-administrator credential. The router must provide the stock `ip`
+command and expose an ordinary installed main-table IPv4 default whose kernel
+device maps to exactly one active netifd interface that also reports a default
+route.
+
+Ordinary single DHCP, static, and PPPoE uplinks satisfy the modeled shape.
+Equal-metric distinct defaults, ECMP/multipath, custom policy routing,
+`mwan3`, unmappable runtime devices, and bond-member selection remain
+unavailable rather than guessed. Those layouts can still be managed outside
+oonfeeWRT, but v0.1.3 does not claim their Dashboard WAN path is authoritative.
+
 ## Network reachability
 
 The controller host must be able to reach every router's management address.
@@ -101,17 +122,22 @@ The supplied Compose setup uses bridge networking and publishes
 `127.0.0.1:8080:8080`. In bridge mode:
 
 - add-by-address, adoption, polling, and Apply work over normal routed L3;
-- subnet TCP discovery can work where routing permits; and
-- ARP-table and mDNS discovery do not cross the container bridge.
+- an explicitly requested, bounded IPv4 subnet scan can work where routing
+  permits; and
+- automatic discovery planning sees the container namespace's eligible
+  directly attached IPv4 networks, not the host's LAN interfaces.
 
-Linux host networking is an explicit opt-in for full local layer-2 discovery.
-Docker Desktop does not provide equivalent true host networking for this use;
-add routers by address. Discovery is a convenience, never an adoption
-requirement.
+Discovery is not ARP- or mDNS-based in any mode. It opens bounded TCP/HTTP
+probes and fingerprints stock rpcd with an unauthenticated `/ubus` object-list
+request. Linux host networking is an explicit opt-in that lets the planner see
+eligible host LAN interfaces; it does not turn discovery into a layer-2
+protocol. Docker Desktop does not provide the equivalent interface view for
+this use. Add routers by address when the planned networks omit the router's
+subnet. Discovery is a convenience, never an adoption requirement.
 
 ## Browser-to-controller security
 
-v0.1.1 has no native TLS listener. Choose one of these deployments:
+v0.1.3 has no native TLS listener. Choose one of these deployments:
 
 1. bind to `127.0.0.1:8080` and use it only from the host;
 2. keep the controller on loopback and publish it through a trusted TLS reverse
@@ -147,15 +173,15 @@ or volume snapshots.
 
 ## Installation artifacts
 
-For v0.1.1:
+For v0.1.3:
 
-- download release archives and `SHA256SUMS` from the v0.1.1 GitHub release;
+- download release archives and `SHA256SUMS` from the v0.1.3 GitHub release;
 - reject any checksum mismatch;
 - note that macOS binaries are not Developer ID signed or notarized; and
 - verify the OCI image's keyless signature before first use where `cosign` is
   available.
 
-The immutable image is `ghcr.io/aiden0rchad/oonfeewrt:v0.1.1`. Stable aliases
+The immutable image is `ghcr.io/aiden0rchad/oonfeewrt:v0.1.3`. Stable aliases
 exist, but deployments should pin the exact version or digest.
 
 ## Source-build requirements
@@ -180,12 +206,22 @@ The stable release's published hardware record covers:
 - Linksys WRT3200ACM; and
 - TP-Link Archer C6 v2;
 
-both on OpenWrt 25.12.5. Three-or-more-AP fan-out, real mesh backhaul, wireless
-uplink, MT7621, and MT7981/Filogic remain unverified for the release. The Archer
-C6 v2 also passed the full 60-minute class-C polling/resource budget harness.
-The record was produced through the pre-stable/RC workflow that underlies
-v0.1.1; the patch release did not rerun the complete hardware procedure, and
-its router-operation code was unchanged.
+both on OpenWrt 25.12.5. The Archer C6 v2 also passed the full 60-minute class-C
+polling/resource budget harness. v0.1.3 adds external, reporter-confirmed
+read-only inspection evidence for a Cudy M3000 v2 with Motorcomm YT8821 on
+OpenWrt 25.12.5 (`mediatek/filogic`): two physical radios, direct LAN `eth1`,
+WAN `eth0`, and no independent switch ports.
+
+That Cudy evidence does not cover adoption/bootstrap, Apply/rollback, WLAN and
+client operation, tagged VLAN management, polling/resource budgets, topology,
+RF scans, speed tests, un-adoption, or other Filogic boards. Three-or-more-AP
+fan-out, real mesh backhaul, wireless uplink, and MT7621 also remain unverified.
+
+v0.1.3's PPPoE/default-route correction has separate evidence: issue #20
+provided real route output, and automated regression tests cover the
+DrayTek-management-plus-PPPoE shape, lower metrics, equal-metric ambiguity,
+direct-interface fallback, composite failure, and rolling API/UI compatibility.
+That does not add a third end-to-end hardware-validation target.
 
 This is evidence, not an allow-list. Another OpenWrt device may work, partially
 work, or expose driver-specific gaps. Adopt one non-critical device first and
@@ -193,12 +229,14 @@ read its capability report.
 
 ## Pre-adoption checklist
 
-- [ ] Controller runs `v0.1.1` (`oonfeewrtd -version`).
+- [ ] Controller runs `v0.1.3` (`oonfeewrtd -version`).
 - [ ] Data directory and matching passphrase backup are protected.
 - [ ] Controller healthcheck passes.
 - [ ] Browser access is loopback-only, trusted-LAN-only, or behind trusted TLS.
 - [ ] Controller host reaches router SSH and `/ubus` endpoints.
 - [ ] Router runs supported OpenWrt with `rpcd` and the `uhttpd` ubus handler.
+- [ ] A gateway provides the stock `/sbin/ip`; the standard adoption payload
+      will grant its exact read-only route command to the scoped login.
 - [ ] Router administrator password is set.
 - [ ] OpenWrt configuration backup exists.
 - [ ] Independent LuCI/SSH recovery path is available.

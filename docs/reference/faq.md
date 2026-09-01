@@ -5,7 +5,7 @@ description: Direct answers about deployment, router changes, compatibility, sec
 
 # Frequently asked questions
 
-Answers below describe **oonfeeWRT v0.1.1**.
+Answers below describe **oonfeeWRT v0.1.3**.
 
 ## What is oonfeeWRT?
 
@@ -82,8 +82,10 @@ per-device changes; Apply is a separate reviewed action.
 
 oonfeeWRT stages UCI with OpenWrt rollback enabled. It confirms only after
 reconnecting and verifying expected runtime state. If connectivity or health
-verification fails, the router's rollback timer is left to restore the previous
-state.
+verification fails, the router's rollback timer is left active. A subsequent
+read can prove that OpenWrt reverted; until it does, the outcome is `unknown`
+and the changed state may still be live. Do not retry until the first operation
+is understood.
 
 Keep independent LuCI/SSH access and start with one non-critical device. See the
 [Safety model](../concepts/safety.md).
@@ -94,16 +96,48 @@ No universal claim is possible. Hardware, drivers, switch architecture, rpcd
 modules, and package sets vary. The controller probes each device and reports
 unsupported, unavailable, stale, and partial facts.
 
-The stable release's published physical record covers a Linksys WRT3200ACM and
-TP-Link Archer C6 v2 on OpenWrt 25.12.5. It came from the pre-stable/RC workflow
-underlying v0.1.1; the patch release did not rerun the whole procedure. Other
-devices may work with different gaps.
+The full published physical record covers a Linksys WRT3200ACM and TP-Link
+Archer C6 v2 on OpenWrt 25.12.5. v0.1.3 additionally has reporter-confirmed,
+read-only inspection evidence for one Cudy M3000 v2/Filogic variant; it does not
+claim adoption, Apply, VLAN, or broader Filogic validation. Other devices may
+work with different gaps.
+
+## What can I share from Inspect?
+
+Use **Export sanitized compatibility report**, not the full Inspect response or
+raw router output. The format-version-1 JSON contains a bounded allowlist of
+board/firmware, physical-radio, LAN/WAN label, switch-mode, feature-state, and
+supported-function evidence. It excludes the target address and MAC, site and
+router identity, credentials, network configuration, clients, live telemetry,
+timestamps, runtime radio/PHY and bridge-member identifiers, and free-text
+notes.
+
+The server omits the report when it cannot satisfy strict safety and size
+bounds. The browser download makes no extra router call, is not stored or
+uploaded by the controller, and becomes an ordinary local file after download.
+It helps maintainers compare compatibility evidence; it is not proof that
+adoption, Apply, VLANs, RF, telemetry, or resource budgets work on that device.
 
 ## Why are some values “Unavailable” instead of zero?
 
 Zero is a measurement. Unavailable means the controller could not obtain or
 trust the measurement. Treating a missing driver counter or failed RPC as zero
 would produce confident but false charts and health claims.
+
+## How does v0.1.3 choose the WAN interface?
+
+It reads the installed IPv4 route table and netifd logical interfaces in one
+topology poll. The controller selects the unique usable lowest-metric default
+in the kernel main table, then maps its kernel device to exactly one active
+logical interface that also reports a default. This is why logical `wan` over
+runtime `pppoe-wan` can use `pppoe-wan` traffic counters while a modem
+management interface no longer wins by list order.
+
+It does not choose between distinct equal-metric defaults, ECMP/multipath,
+policy-routing tables, `mwan3`, unmappable devices, or bond members. Missing,
+malformed, ambiguous, or inconsistent evidence stays unavailable, and an exact
+matching RX/TX series must exist before WAN throughput is shown. Collection is
+on a baseline 15-minute topology cycle, not a rapid failover monitor.
 
 ## Why is an online device “Unplaced” in Topology?
 
@@ -127,11 +161,11 @@ modify a router, but its traffic follows the normal WAN path. The test uses
 about 15 MiB, is bounded to 30 seconds, and can temporarily saturate the WAN.
 
 Gateway-run testing, loaded latency, and loaded jitter are unavailable in
-v0.1.1.
+v0.1.3.
 
 ## Does the controller have HTTPS?
 
-Not natively in v0.1.1. Bind it to loopback or a trusted isolated management
+Not natively in v0.1.3. Bind it to loopback or a trusted isolated management
 LAN and use a trusted reverse proxy for TLS. Do not expose port 8080 directly to
 the Internet.
 
@@ -190,10 +224,14 @@ OpenWrt logs for 24 hours, closed topology intervals for 31 days, 100,000
 controller/audit events, and the newest three terminal speed tests. See the
 complete [retention table](../concepts/data-retention.md).
 
-## Can I downgrade from v0.1.1?
+## Can I downgrade from v0.1.3?
 
-v0.1.1 and v0.1.0 both use schema 19, so a clean binary/image rollback is
-schema-compatible; preserve the v0.1.1 data pair first.
+v0.1.3 and v0.1.2 both use schema 19, so a clean binary/image rollback is
+schema-compatible; preserve the v0.1.3 data pair first.
+
+v0.1.1 also uses schema 19, but rolling back skips later fixes and features.
+Preserve the current database/keyring pair and use the exact release notes when
+choosing a target; schema compatibility alone is not an operational guarantee.
 
 Historical `v0.1.0-rc.1` uses schema 17. Rolling back that far requires the
 untouched pre-upgrade schema-17 database, matching keyring, prior passphrase,
@@ -208,7 +246,7 @@ and old binary/image together. Do not open schema-19 data with the RC daemon.
 - native mobile apps;
 - continuous proprietary spectrum analysis, paid threat feeds, and branded AI
   features; and
-- DPI/application flow history on constrained routers in v0.1.1.
+- DPI/application flow history on constrained routers in v0.1.3.
 
 ## Where should I start?
 
