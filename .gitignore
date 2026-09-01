@@ -17,7 +17,7 @@ probe-*.json
 # following the documented instructions left a keyring.json sitting untracked
 # in a public repo, one `git add -A` from being published.
 data/
-.run/
+.run*
 /local-backups/
 **/.oonfeewrt-recovery/
 
